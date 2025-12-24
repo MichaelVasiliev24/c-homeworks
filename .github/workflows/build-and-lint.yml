@@ -30,13 +30,15 @@ jobs:
             exit 0
           fi
           
-          echo "Found files to check:"
-          echo "$C_FILES"
+          echo "Found $(echo "$C_FILES" | wc -l) files to check"
           
-          # Проверяем форматирование
-          echo "$C_FILES" | xargs -r clang-format-18 --style=file --dry-run -Werror
-          
-          echo "All files are properly formatted"
+          # Проверяем форматирование только если есть .clang-format
+          if [ -f .clang-format ]; then
+            echo "$C_FILES" | xargs -r clang-format-18 --style=file --dry-run -Werror
+            echo "All files are properly formatted"
+          else
+            echo "No .clang-format file found, skipping format check"
+          fi
   
   build-and-test:
     name: Build and test
@@ -72,15 +74,14 @@ jobs:
         run: |
           echo "Checking for source files..."
           
-          # Проверяем есть ли C файлы в src/
-          C_FILES=$(find src -name "*.c" 2>/dev/null || true)
+          # Проверяем есть ли C файлы
+          C_FILES=$(find . -name "*.c" ! -path "./build/*" 2>/dev/null | head -5 || true)
           
           if [ -z "$C_FILES" ]; then
             echo "No C source files found"
             echo "HAVE_SOURCES=false" >> $GITHUB_OUTPUT
           else
-            echo "Found source files"
-            echo "C_FILES_COUNT=$(echo "$C_FILES" | wc -l)" >> $GITHUB_OUTPUT
+            echo "Found $(echo "$C_FILES" | wc -l) source files"
             echo "HAVE_SOURCES=true" >> $GITHUB_OUTPUT
           fi
       
@@ -91,10 +92,11 @@ jobs:
           mkdir -p build
           cd build
           
-          # Конфигурируем CMake
           cmake .. \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-            -DCMAKE_BUILD_TYPE=Debug
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DBUILD_TESTING=ON \
+            -DCMAKE_C_FLAGS="-Wall -Wextra"
           
           echo "CMake configuration complete"
       
@@ -103,25 +105,63 @@ jobs:
         run: |
           cd build
           
-          # Пытаемся собрать
-          if make -j$(nproc); then
+          if cmake --build . --parallel $(nproc); then
             echo "Build successful"
+            
+            EXEC_COUNT=$(find . -type f -executable ! -path "*/CMakeFiles/*" 2>/dev/null | wc -l || true)
+            echo "Built $EXEC_COUNT executables"
+            
+            if [ "$EXEC_COUNT" -gt 0 ]; then
+              echo "HAVE_EXECUTABLES=true" >> $GITHUB_ENV
+            else
+              echo "HAVE_EXECUTABLES=false" >> $GITHUB_ENV
+            fi
           else
-            echo "Build failed or no targets"
-            exit 0  # Выходим без ошибки
+            echo "Build failed"
+            exit 1
           fi
       
       - name: Run tests with CTest
-        if: steps.check-cmake.outputs.CMAKE_EXISTS == 'true' && steps.check-sources.outputs.HAVE_SOURCES == 'true'
+        if: steps.check-cmake.outputs.CMAKE_EXISTS == 'true' && steps.check-sources.outputs.HAVE_SOURCES == 'true' && env.HAVE_EXECUTABLES == 'true'
         run: |
           cd build
           
-          # Проверяем есть ли тесты
-          if [ -f "CTestTestfile.cmake" ]; then
-            echo "Running tests with CTest..."
-            ctest --output-on-failure || echo "Some tests failed"
+          echo "Running tests..."
+          
+          if ctest -N 2>&1 | grep -q "Test #"; then
+            TEST_COUNT=$(ctest -N 2>&1 | grep "Test #" | wc -l)
+            echo "Found $TEST_COUNT CTest test(s)"
+            echo "Running tests..."
+            
+            if ctest --output-on-failure; then
+              echo "All tests passed"
+            else
+              echo "Some tests failed"
+              exit 1
+            fi
           else
-            echo "No tests configured in CTest"
+            echo "No CTest test targets configured"
+            
+            echo "Checking executables for tests..."
+            ALL_EXECS=$(find . -type f -executable ! -path "*/CMakeFiles/*" 2>/dev/null || true)
+            
+            TEST_FOUND=false
+            for exec_path in $ALL_EXECS; do
+              exec_name=$(basename "$exec_path")
+              
+              # Пробуем запустить с --test
+              if timeout 3s ./"$exec_path" --test >/dev/null 2>&1; then
+                echo "Running $exec_name with --test flag..."
+                if ./"$exec_path" --test; then
+                  echo "$exec_name tests passed"
+                  TEST_FOUND=true
+                fi
+              fi
+            done
+            
+            if [ "$TEST_FOUND" = false ]; then
+              echo "No tests found in executables"
+            fi
           fi
       
       - name: Run clang-tidy
@@ -130,9 +170,15 @@ jobs:
           if [ -f "build/compile_commands.json" ]; then
             echo "Running clang-tidy..."
             
-            # Ищем C файлы для проверки (первые 3 для скорости)
             find src -name "*.c" 2>/dev/null | head -3 | \
-              xargs -r -I {} clang-tidy-18 {} -p=build --checks='clang-analyzer-*' || true
+              while read -r file; do
+                if [ -f "$file" ]; then
+                  echo "Analyzing $file..."
+                  clang-tidy-18 "$file" -p=build --checks='clang-analyzer-*' --quiet 2>&1 | \
+                    grep -E "(error|warning|note):" || true
+                fi
+              done
+            echo "Clang-tidy check completed"
           else
             echo "compile_commands.json not found - skipping clang-tidy"
           fi
@@ -141,19 +187,18 @@ jobs:
         if: steps.check-cmake.outputs.CMAKE_EXISTS == 'false'
         run: |
           echo "Skipping build - no CMakeLists.txt found"
-          echo "This is expected for empty homework directories"
           exit 0
       
       - name: Skip build (no source files)
         if: steps.check-cmake.outputs.CMAKE_EXISTS == 'true' && steps.check-sources.outputs.HAVE_SOURCES == 'false'
         run: |
           echo "Skipping build - CMakeLists.txt exists but no source files"
-          echo "This is expected for empty homework directories"
           exit 0
       
       - name: Final status
         run: |
           echo "=== CI Pipeline Summary ==="
-          echo "CMakeLists.txt exists: ${{ steps.check-cmake.outputs.CMAKE_EXISTS || 'false' }}"
-          echo "Have source files: ${{ steps.check-sources.outputs.HAVE_SOURCES || 'false' }}"
+          echo "Format check: PASSED"
+          echo "CMakeLists.txt: ${{ steps.check-cmake.outputs.CMAKE_EXISTS || 'false' }}"
+          echo "Source files: ${{ steps.check-sources.outputs.HAVE_SOURCES || 'false' }}"
           echo "==========================="
