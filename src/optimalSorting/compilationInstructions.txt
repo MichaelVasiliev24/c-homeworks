@@ -1,0 +1,11 @@
+// Инструкция по ручной компиляции с использованием ассемблерного файла mergeSort.s
+
+1. Перейти в корень проекта
+2. gcc -Wall -Wextra -Wpedantic -Werror \
+    -I./include/optimalSorting \
+    -I./src/optimalSorting \
+    -I. \
+    src/optimalSorting/main.c \
+    src/optimalSorting/count.c \
+    src/optimalSorting/mergeSort.s \
+    -o optimalSorting
