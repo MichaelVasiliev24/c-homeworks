@@ -1,5 +1,5 @@
-#include "../../include/sortedList/menu.h"
-#include "../../include/sortedList/sortedList.h"
+#include "menu.h"
+#include "sortedList.h"
 #include <stdio.h>
 #include <stdlib.h>
 

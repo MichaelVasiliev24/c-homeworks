@@ -1,4 +1,4 @@
-#include "../../include/sortedList/sortedList.h"
+#include "sortedList.h"
 #include <stdio.h>
 #include <stdlib.h>
 
