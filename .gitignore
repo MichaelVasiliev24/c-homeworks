@@ -73,19 +73,17 @@ CMakeFiles/
 cmake_install.cmake
 install_manifest.txt
 compile_commands.json
-CTestTestfile.cmake  # Explicitly list this file
-Makefile
-*.cmake  # As per instructor's note
+CTestTestfile.cmake
+*.cmake
 CMakeUserPresets.json
 
-# Auto-generated scripts
-*.cbp  # Code::Blocks
-*.workspace
-*.ninja
+# Auto-generated build system files
 .ninja_deps
 .ninja_log
 rules.ninja
 build.ninja
+*.cbp
+*.workspace
 
 # =====================
 # VS Code
@@ -190,7 +188,7 @@ coverage_report/
 .clangd/
 
 # =====================
-# Exceptions for important project files
+# Project files (exceptions)
 # =====================
 !CMakeLists.txt
 !src/**/*.c
@@ -201,3 +199,13 @@ coverage_report/
 !.gitignore
 !.clang-format
 !.clang-tidy
+
+# =====================
+# MAKE FILE RULES
+# =====================
+
+# Игнорируем все Makefile по умолчанию
+Makefile
+
+# Разрешаем Makefile в любой подпапке src/ (рекурсивно)
+!/src/**/Makefile
