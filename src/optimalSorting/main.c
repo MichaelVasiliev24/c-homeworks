@@ -1,5 +1,5 @@
-#include "../../include/optimalSorting/mergeSort.h"
-#include "../../include/optimalSorting/count.h"
+#include "mergeSort.h"
+#include "count.h"
 #include <stdio.h>
 
 int main(void)
@@ -20,10 +20,7 @@ int main(void)
         }
 
         if (result == 0) {
-            inputChar = getchar();
-            if (inputChar == '\n' || inputChar == EOF) {
-                break;
-            }
+            // Некорректный ввод - пропускаем оставшиеся символы до пробела или конца строки
             while ((inputChar = getchar()) != '\n' && inputChar != EOF && inputChar != ' ') {
                 ;
             }
@@ -41,16 +38,14 @@ int main(void)
         if (inputChar == '\n' || inputChar == EOF) {
             break;
         }
-        ungetc(inputChar, stdin);
+        // Возвращаем символ обратно в поток, если это пробел
+        if (inputChar == ' ') {
+            ungetc(inputChar, stdin);
+        }
     }
 
     if (count == 0) {
         fprintf(stderr, "Ошибка: нет данных для сортировки\n");
-        return 0;
-    }
-
-    if (count > MAX_ELEMENTS) {
-        fprintf(stderr, "Ошибка: превышено максимальное количество элементов (%d)\n", MAX_ELEMENTS);
         return 0;
     }
 
@@ -59,4 +54,6 @@ int main(void)
     int movedCount = countMovedElements(original, numbers, count);
 
     printf("Количество элементов, изменивших позицию после сортировки: %d\n", movedCount);
+
+    return 0;
 }

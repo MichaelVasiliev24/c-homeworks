@@ -1,4 +1,4 @@
-#include "../../include/optimalSorting/mergeSort.h"
+#include "mergeSort.h"
 #include <stdlib.h>
 #include <stdio.h>
 
