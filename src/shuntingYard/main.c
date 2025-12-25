@@ -1,4 +1,4 @@
-#include "../../include/shuntingYard/shuntingYard.h"
+#include "shuntingYard.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -20,9 +20,10 @@ int main(void)
         inputExpression[len - 1] = '\0';
     }
 
-    int result = infixToPostfix(inputExpression, outputExpression, MAX_OUTPUT_STRING_SIZE);
+    bool success = infixToPostfix(inputExpression, outputExpression,
+        MAX_OUTPUT_STRING_SIZE);
 
-    if (result == 1) {
+    if (success) {
         printf("Выражение в постфиксной форме:%s\n", outputExpression);
     }
     else {
