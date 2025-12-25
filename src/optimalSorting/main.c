@@ -20,33 +20,43 @@ int main(void)
         }
 
         if (result == 0) {
-            // Некорректный ввод - пропускаем оставшиеся символы до пробела или конца строки
-            while ((inputChar = getchar()) != '\n' && inputChar != EOF && inputChar != ' ') {
-                ;
-            }
-            if (inputChar == '\n' || inputChar == EOF) {
-                break;
-            }
-            continue;
+            // Некорректный ввод - завершаем с ошибкой
+            fprintf(stderr, "Ошибка: некорректный ввод\n");
+            return 1;
         }
 
         numbers[count] = inputNum;
         original[count] = inputNum;
         count++;
 
+        // Проверяем следующий символ
         inputChar = getchar();
         if (inputChar == '\n' || inputChar == EOF) {
             break;
         }
-        // Возвращаем символ обратно в поток, если это пробел
-        if (inputChar == ' ') {
-            ungetc(inputChar, stdin);
+
+        // Если следующий символ не пробел и не конец - ошибка
+        if (inputChar != ' ') {
+            fprintf(stderr, "Ошибка: числа должны разделяться пробелами\n");
+            return 1;
         }
+
+        // Пропускаем возможные дополнительные пробелы
+        while ((inputChar = getchar()) == ' ') {
+            ;
+        }
+
+        if (inputChar == '\n' || inputChar == EOF) {
+            break;
+        }
+
+        // Возвращаем символ обратно в поток
+        ungetc(inputChar, stdin);
     }
 
     if (count == 0) {
         fprintf(stderr, "Ошибка: нет данных для сортировки\n");
-        return 0;
+        return 1;
     }
 
     mergeSort(numbers, 0, count - 1);
